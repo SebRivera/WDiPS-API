@@ -53,7 +53,7 @@ def gradio_contents_based_recommender_v2(df, game, how_many, dropdown_option, so
     #Sort list of similar games from top to bottom
     similar_games = list(filter(lambda x:x[0] != int(games_index), sorted(games_list,key=lambda x:x[1], reverse=True)))
     #Print the game title the similarity matrix is based on
-    print('Here\'s the list of games similar to '+'\033[1m'+str(closest_title)+'\033[0m'+'.\n')
+    print('Here\'s the list of games similar to ' + str(closest_title) + ':\n')
     #Only return the games that are on selected platform
     n_games = []
     for i,s in similar_games:
@@ -67,9 +67,10 @@ def gradio_contents_based_recommender_v2(df, game, how_many, dropdown_option, so
     #Return the game tuple (game index, game distance score) and store in a dataframe
     for i,s in n_games[:how_many]:
         #Dataframe will contain attributes based on game index
-        row = {'Game Title': get_title_from_index(df, i), 'Year': get_title_year_from_index(df, i), 'Score': get_score_from_index(df, i), 'Weighted Score': get_weighted_score_from_index(df, i), 'Total Ratings': get_total_ratings_from_index(df,i),}
+        row = pd.DataFrame({'Game Title': get_title_from_index(df, i), 'Year': get_title_year_from_index(df, i), 'Score': get_score_from_index(df, i), 'Weighted Score': get_weighted_score_from_index(df, i), 'Total Ratings': get_total_ratings_from_index(df,i),})
         #Append each row to this dataframe
-        recomm_df = recomm_df.append(row, ignore_index = True)
+        pd.concat([row, recomm_df], ignore_index=True)
+        #recomm_df = recomm_df.concat(row, ignore_index = True)
     #Sort dataframe by Sort_Option provided by 
     userrecomm_df = recomm_df.sort_values(sort_option, ascending=False)
     #Only include games released same or after minimum year 
