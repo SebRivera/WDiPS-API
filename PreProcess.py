@@ -60,12 +60,20 @@ def addWeightedRating(df):
     df['weighted_score'] = df.apply(weighted_rating, axis=1, args=(m, C))
     return df
 
+def combine(x, colA, colB):
+    return x[colA] + ' ' + x[colB]
 
 def formatColumns(df):
     #We're adding this is for tags with multiple words, we need to connect by '-' before we split them by ' '
     df['steamspy_tags'] = df['steamspy_tags'].str.replace(' ','-')
     #TF-IDF Vectorizer further down will identify the words by the spaces between the words
     df['genres'] = df['steamspy_tags'].str.replace(';',' ')
+    
+    df['categories'] = df['categories'].str.replace(' ','-')
+    df['categories'] = df['categories'].str.replace(';',' ')
+    features = ('steamspy_tags','categories')
+    df['merged'] = df.apply(combine, axis=1, args = features)
+    
     # count the number of occurences for each genre in the data set
     counts = dict()
     for i in df.index:

@@ -1,7 +1,7 @@
 import PreProcess
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
+from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
 from fuzzywuzzy import fuzz
 
 def matching_score(a,b):
@@ -72,9 +72,9 @@ def gradio_contents_based_recommender_v2(df, game, how_many, dropdown_option, so
         recomm_df = pd.concat([row, recomm_df])
         #recomm_df = recomm_df.concat(row, ignore_index = True)
     #Sort dataframe by Sort_Option provided by 
-    userrecomm_df = recomm_df.sort_values(sort_option, ascending=False)
+    recomm_df = recomm_df.sort_values(sort_option, ascending=False)
     #Only include games released same or after minimum year 
-    selectedrecomm_df = recomm_df[recomm_df['Year'] >= min_year]
+    recomm_df = recomm_df[recomm_df['Year'] >= min_year]
     return recomm_df
 
 if __name__ == '__main__':
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     dataDF = PreProcess.addWeightedRating(dataDF)
     
     #Print the top 15 games
-    print(dataDF[['name', 'total_ratings', 'score', 'weighted_score']].head(15))
+    # print(dataDF[['name', 'total_ratings', 'score', 'weighted_score']].head(15))
     
     dataDF = PreProcess.formatColumns(dataDF)
     
@@ -93,12 +93,12 @@ if __name__ == '__main__':
     tfidfVector = TfidfVectorizer(stop_words='english')
     # apply the object to the genres column
     # convert the list of documents (rows of genre tags) into a matrix
-    tfidfMatrix = tfidfVector.fit_transform(dataDF['genres'])
+    tfidfMatrix = tfidfVector.fit_transform(dataDF['merged'])
     print(tfidfMatrix.shape)
     
     # create the cosine similarity matrix
     sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
     print(sim_matrix)
-    result = gradio_contents_based_recommender_v2(dataDF, "Terraria", 10, "Terraria", "Score", 2000, "windows", 0)
+    result = gradio_contents_based_recommender_v2(dataDF, "Celeste", 20, "Celeste", "Weighted Score", 1980, "windows", 0)
     
     print(result)
