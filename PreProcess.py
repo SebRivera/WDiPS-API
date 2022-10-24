@@ -60,8 +60,30 @@ def addWeightedRating(df):
     df['weighted_score'] = df.apply(weighted_rating, axis=1, args=(m, C))
     return df
 
-def combine(x, colA, colB):
-    return x[colA] + ' ' + x[colB]
+def combine(x, colA, colB, colC):
+    return x[colA] + ' ' + x[colB] + ' ' + x[colC]
+def combine2(x, *features):
+    result = ''
+    for f in features:
+        result += x[f] + ' '
+    return result
+
+def updateAvgPlaytime(df):
+    # replace the data in column 'average_playtime' with 'Unplayed' if the value is 0, VeryLow-PT if value > 0 and < 200, Low-PT if value >= 200 and < 400, Med-PT if value >= 400 and < 700, High-PT if value >= 700 and < 1000, VeryHigh-PT if value >= 1000 and < 4999 and Extreme-PT if value >= 5000
+    if df['average_playtime'] == 0:
+        return 'Unplayed'
+    elif df['average_playtime'] > 0 and df['average_playtime'] < 200:
+        return 'VeryLow-PT'
+    elif df['average_playtime'] >= 200 and df['average_playtime'] < 400:
+        return 'Low-PT'
+    elif df['average_playtime'] >= 400 and df['average_playtime'] < 700:
+        return 'Med-PT'
+    elif df['average_playtime'] >= 700 and df['average_playtime'] < 1000:
+        return 'High-PT'
+    elif df['average_playtime'] >= 1000 and df['average_playtime'] < 4999:
+        return 'VeryHigh-PT'
+    elif df['average_playtime'] >= 5000:
+        return 'Extreme-PT'
 
 def formatColumns(df):
     #We're adding this is for tags with multiple words, we need to connect by '-' before we split them by ' '
@@ -71,8 +93,11 @@ def formatColumns(df):
     
     df['categories'] = df['categories'].str.replace(' ','-')
     df['categories'] = df['categories'].str.replace(';',' ')
-    features = ('steamspy_tags','categories')
-    df['merged'] = df.apply(combine, axis=1, args = features)
+    
+    df['average_playtime'] = df.apply(updateAvgPlaytime, axis=1)
+    features = ['steamspy_tags','categories','average_playtime']
+    df['merged'] = df.apply(combine2, axis=1, args = features)
+    print(df['merged'].head())
     
     # count the number of occurences for each genre in the data set
     counts = dict()

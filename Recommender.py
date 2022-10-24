@@ -39,7 +39,7 @@ def closestNames(title):
     top_closest_names = [get_title_from_index(i[0]) for i in sorted_leven_scores[:10]]
     return top_closest_names
     
-def gradio_contents_based_recommender_v2(df, game, how_many, dropdown_option, sort_option, min_year, platform, min_score):
+def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platform, min_score):
     #Return closest game title match
     closest_title, distance_score = find_closest_title(df, dropdown_option)
     #Create a Dataframe with these column headers
@@ -99,6 +99,6 @@ if __name__ == '__main__':
     # create the cosine similarity matrix
     sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
     print(sim_matrix)
-    result = gradio_contents_based_recommender_v2(dataDF, "Celeste", 20, "Celeste", "Weighted Score", 1980, "windows", 0)
+    result = recommend(dataDF, "Gang Beasts", 20, "Gang Beasts", "Weighted Score", 1980, "windows", 0)
     
     print(result)
