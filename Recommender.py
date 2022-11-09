@@ -4,6 +4,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
 from fuzzywuzzy import fuzz
 
+
+
 def matching_score(a,b):
    return fuzz.ratio(a,b)
    # exactly the same, the score becomes 100
@@ -54,18 +56,27 @@ def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platfo
     similar_games = list(filter(lambda x:x[0] != int(games_index), sorted(games_list,key=lambda x:x[1], reverse=True)))
     #Print the game title the similarity matrix is based on
     print('Here\'s the list of games similar to ' + str(closest_title) + ':\n')
+    #print(similar_games)
     #Only return the games that are on selected platform
     n_games = []
+    #for i in range(0, 6169):
+       #print(str(i) + "-" + str(similar_games[i][0]))
+       
     for i,s in similar_games:
-        if platform in get_platform_from_index(df, i):
+      if platform in get_platform_from_index(df, i):
             n_games.append((i,s))
     #Only return the games that are above the minimum score
     high_scores = []
     for i,s in n_games:
         if get_score_from_index(df, i) > min_score:
             high_scores.append((i,s))
+            
+    n_games_min_years = []        
+    for i,s in n_games:
+       if get_title_year_from_index(df, i) >= min_year:
+          n_games_min_years.append((i,s))
     #Return the game tuple (game index, game distance score) and store in a dataframe
-    for i,s in n_games[:how_many]:
+    for i,s in n_games_min_years[:how_many]:
         #Dataframe will contain attributes based on game index
         row = pd.DataFrame({'Game Title': get_title_from_index(df, i), 'Year': get_title_year_from_index(df, i), 'Score': get_score_from_index(df, i), 'Weighted Score': get_weighted_score_from_index(df, i), 'Total Ratings': get_total_ratings_from_index(df,i)}, index = [0])
         #Append each row to this dataframe
@@ -74,12 +85,13 @@ def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platfo
     #Sort dataframe by Sort_Option provided by 
     recomm_df = recomm_df.sort_values(sort_option, ascending=False)
     #Only include games released same or after minimum year 
-    recomm_df = recomm_df[recomm_df['Year'] >= min_year]
+    #recomm_df = recomm_df[recomm_df['Year'] >= min_year]
     return recomm_df
 
 if __name__ == '__main__':
     # Apply the PreProcess functions to the dataset
     dataDF = PreProcess.importData("Data\steam.csv")
+    dataDF = PreProcess.dropNoPlayRimeRows(dataDF)
     dataDF['year'] = dataDF['release_date'].apply(PreProcess.extractYear)
     dataDF = PreProcess.addScoreAndTotalRatings(dataDF)
     dataDF = PreProcess.addWeightedRating(dataDF)
@@ -88,6 +100,8 @@ if __name__ == '__main__':
     # print(dataDF[['name', 'total_ratings', 'score', 'weighted_score']].head(15))
     
     dataDF = PreProcess.formatColumns(dataDF)
+    
+    dataDF.to_csv('Data\cleanedData.csv', index=False)
     
     # create an object for TfidfVectorizer
     tfidfVector = TfidfVectorizer(stop_words='english')
@@ -99,6 +113,7 @@ if __name__ == '__main__':
     # create the cosine similarity matrix
     sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
     print(sim_matrix)
-    result = recommend(dataDF, "Gang Beasts", 20, "Gang Beasts", "Weighted Score", 1980, "windows", 0)
-    
+    print(dataDF.shape)
+    result = recommend(dataDF, "half-life", 10, "Risk of Rain", "Weighted Score", 2000, "windows", 0)
+    #result.to_csv('Data\result.csv', index=False)
     print(result)

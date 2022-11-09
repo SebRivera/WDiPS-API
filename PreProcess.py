@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-import re
-import itertools
+
 ## import matplotlib.pyplot as plt
 def importData(filename):
     df = pd.read_csv(filename, encoding = "utf-8")
@@ -24,7 +23,13 @@ def extractYear(date):
         return int(year)
     else:
         return np.nan
-
+    
+def dropNoPlayRimeRows(df):
+    idxNoPTR = df[(df['average_playtime'] == 0)].index
+    df.drop(idxNoPTR , inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
+    
 def totalRatings(row):
     posCount = row['positive_ratings']
     negCount = row['negative_ratings']
@@ -64,15 +69,15 @@ def combine(x, colA, colB, colC):
     return x[colA] + ' ' + x[colB] + ' ' + x[colC]
 def combine2(x, *features):
     result = ''
+    # turn features to string  
+    
+    
     for f in features:
-        result += x[f] + ' '
+        result += str(x[f]) + ' '
     return result
 
 def updateAvgPlaytime(df):
-    # replace the data in column 'average_playtime' with 'Unplayed' if the value is 0, VeryLow-PT if value > 0 and < 200, Low-PT if value >= 200 and < 400, Med-PT if value >= 400 and < 700, High-PT if value >= 700 and < 1000, VeryHigh-PT if value >= 1000 and < 4999 and Extreme-PT if value >= 5000
-    if df['average_playtime'] == 0:
-        return 'Unplayed'
-    elif df['average_playtime'] > 0 and df['average_playtime'] < 200:
+    if df['average_playtime'] > 0 and df['average_playtime'] < 200:
         return 'VeryLow-PT'
     elif df['average_playtime'] >= 200 and df['average_playtime'] < 400:
         return 'Low-PT'
@@ -87,15 +92,21 @@ def updateAvgPlaytime(df):
 
 def formatColumns(df):
     #We're adding this is for tags with multiple words, we need to connect by '-' before we split them by ' '
+    df.astype(str).apply(lambda x: x.str.encode('ascii', 'ignore').str.decode('ascii'))
     df['steamspy_tags'] = df['steamspy_tags'].str.replace(' ','-')
     #TF-IDF Vectorizer further down will identify the words by the spaces between the words
     df['genres'] = df['steamspy_tags'].str.replace(';',' ')
     
     df['categories'] = df['categories'].str.replace(' ','-')
     df['categories'] = df['categories'].str.replace(';',' ')
+    df['name'] = df['name'].str.replace('™','')
+    df['name'] = df['name'].str.replace('®','')
+    df['developer'] = df['developer'].str.replace('™','')
+    df['publisher'] = df['publisher'].str.replace('™','')
+
     
     df['average_playtime'] = df.apply(updateAvgPlaytime, axis=1)
-    features = ['steamspy_tags','categories','average_playtime']
+    features = ['steamspy_tags','categories', 'average_playtime', 'required_age'] #,'average_playtime'
     df['merged'] = df.apply(combine2, axis=1, args = features)
     print(df['merged'].head())
     
