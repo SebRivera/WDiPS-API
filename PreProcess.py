@@ -1,11 +1,17 @@
 import pandas as pd
 import numpy as np
+import re
 
 ## import matplotlib.pyplot as plt
 def importData(filename):
     df = pd.read_csv(filename, encoding = "utf-8")
     ##fileName = "Data\steam.csv"
     return df
+
+
+def replace_foreign_characters(s):
+    return re.sub(r'[^\x00-\x7f]',r'', s)
+
 
 #These are just quick checks to make sure the dataset looks correct
 ## print(df.shape)
@@ -27,6 +33,15 @@ def extractYear(date):
 def dropNoPlayRimeRows(df):
     idxNoPTR = df[(df['average_playtime'] == 0)].index
     df.drop(idxNoPTR , inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+def dropNoNameDevPub(df):
+    idxNoNDP = df[(df['name'] == '')].index
+    df.drop(idxNoNDP , inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    idxNoNDP = df[(df['developer'] == '') & (df['publisher'] == '')].index
+    df.drop(idxNoNDP , inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
     
@@ -93,16 +108,27 @@ def updateAvgPlaytime(df):
 def formatColumns(df):
     #We're adding this is for tags with multiple words, we need to connect by '-' before we split them by ' '
     df.astype(str).apply(lambda x: x.str.encode('ascii', 'ignore').str.decode('ascii'))
+    df['name'] = df['name'].apply(lambda x: replace_foreign_characters(x))
+    df['developer'] = df['developer'].apply(lambda x: replace_foreign_characters(x))
+    df['publisher'] = df['publisher'].apply(lambda x: replace_foreign_characters(x))
+    # df = df[df['name'].map(lambda x: x.isascii())]
+    # df = df[df['developer'].map(lambda x: x.isascii())]
+    # df = df[df['publisher'].map(lambda x: x.isascii())]
+    # df.reset_index(drop=True, inplace=True)
     df['steamspy_tags'] = df['steamspy_tags'].str.replace(' ','-')
     #TF-IDF Vectorizer further down will identify the words by the spaces between the words
     df['genres'] = df['steamspy_tags'].str.replace(';',' ')
-    
     df['categories'] = df['categories'].str.replace(' ','-')
     df['categories'] = df['categories'].str.replace(';',' ')
     df['name'] = df['name'].str.replace('™','')
     df['name'] = df['name'].str.replace('®','')
+    df['name'] = df['name'].str.replace('’','')
     df['developer'] = df['developer'].str.replace('™','')
     df['publisher'] = df['publisher'].str.replace('™','')
+    
+    df['name'] = df['name'].str.strip()
+    df['developer'] = df['developer'].str.strip()
+    df['publisher'] = df['publisher'].str.strip()
 
     
     df['average_playtime'] = df.apply(updateAvgPlaytime, axis=1)

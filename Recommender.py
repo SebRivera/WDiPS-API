@@ -41,7 +41,7 @@ def closestNames(title):
     top_closest_names = [get_title_from_index(i[0]) for i in sorted_leven_scores[:10]]
     return top_closest_names
     
-def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platform, min_score):
+def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platform, min_score, sm_matrix):
     #Return closest game title match
     closest_title, distance_score = find_closest_title(df, dropdown_option)
     #Create a Dataframe with these column headers
@@ -51,7 +51,7 @@ def recommend(df, game, how_many, dropdown_option, sort_option, min_year, platfo
     #find the corresponding index of the game title
     games_index = get_index_from_title(df, closest_title)
     #return a list of the most similar game indexes as a list
-    games_list = list(enumerate(sim_matrix[int(games_index)]))
+    games_list = list(enumerate(sm_matrix[int(games_index)]))
     #Sort list of similar games from top to bottom
     similar_games = list(filter(lambda x:x[0] != int(games_index), sorted(games_list,key=lambda x:x[1], reverse=True)))
     #Print the game title the similarity matrix is based on
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     # print(dataDF[['name', 'total_ratings', 'score', 'weighted_score']].head(15))
     
     dataDF = PreProcess.formatColumns(dataDF)
+    dataDF = PreProcess.dropNoNameDevPub(dataDF)
     
     dataDF.to_csv('Data\cleanedData.csv', index=False)
     
@@ -113,7 +114,8 @@ if __name__ == '__main__':
     # create the cosine similarity matrix
     sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
     print(sim_matrix)
+    print(sim_matrix.shape)
     print(dataDF.shape)
-    result = recommend(dataDF, "half-life", 10, "Risk of Rain", "Weighted Score", 2000, "windows", 0)
+    result = recommend(dataDF, "half-life", 10, "DARK SOULS: REMASTERED", "Weighted Score", 2000, "windows", 0, sim_matrix)
     #result.to_csv('Data\result.csv', index=False)
     print(result)
