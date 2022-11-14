@@ -5,11 +5,21 @@ from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
 from fuzzywuzzy import fuzz
 import json
 
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
+
+import os
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="wdips-functions\wdips-creds.json"
+
+
 
 def matching_score(a,b):
    return fuzz.ratio(a,b)
    # exactly the same, the score becomes 100
-   
+
+def get_appid_from_index(df, index):
+   return df[df.index == index]['appid'].values[0]
 def get_title_year_from_index(df, index):
    return df[df.index == index]['year'].values[0]
 def get_title_from_index(df, index):
@@ -40,6 +50,35 @@ def closestNames(title):
    sorted_leven_scores = sorted(leven_scores, key=lambda x: x[1], reverse=True)
    top_closest_names = [get_title_from_index(i[0]) for i in sorted_leven_scores[:10]]
    return top_closest_names
+
+def updateRecommFirebase(df, matrix):
+   # Firebase Credentials
+   cred = credentials.Certificate("wdips-functions\wdips-creds.json")
+   app = firebase_admin.initialize_app(cred)
+   db = firestore.client()
+   
+   # For loop to go through each game in the similarity matrix
+   for r in range(0,len(matrix)):
+      #Extract the list (row) of similar games in the matrix in index r to a tuple.
+      row = list(enumerate(matrix[int(r)]))
+      #Sort the list of tuples by the similarity score
+      row_sorted = list(filter(lambda x:x[0] != int(r), sorted(row,key=lambda x:x[1], reverse=True)))
+      #Extract only the indexes if the sorted list
+      idxList = list(zip(*row_sorted))[0]
+      
+      #Extract the appid of the game in the current row
+      currAppID = get_appid_from_index(df, row[r][0])
+      
+      #Create Dictionary with the appid of the current game and the list of (100) similar games
+      topRecDict = {'appID': str(currAppID), 'topRecommend': {}}
+      for g in range(0,100):
+         #Add the 100 most simalar games to the dictionary
+         topRecDict['topRecommend'].update({str(g+1): str(get_appid_from_index(df, idxList[g]))})
+      
+      #Add the dictionary to the firebase database
+      doc_ref = db.collection(u'recommendation').document(u'' + str(currAppID))
+      doc_ref.set(topRecDict, merge=True)
+   
     
 def recommend(df, how_many, dropdown_option, sort_option, min_year, platform, min_score, sm_matrix):
    #Return closest game title match
@@ -56,7 +95,6 @@ def recommend(df, how_many, dropdown_option, sort_option, min_year, platform, mi
    similar_games = list(filter(lambda x:x[0] != int(games_index), sorted(games_list,key=lambda x:x[1], reverse=True)))
    #Print the game title the similarity matrix is based on
    print('Here\'s the list of games similar to ' + str(closest_title) + ':\n')
-   #print(similar_games)
    #Only return the games that are on selected platform
    n_games = []
    #for i in range(0, 6169):
@@ -95,48 +133,24 @@ if __name__ == '__main__':
    dataDF['year'] = dataDF['release_date'].apply(PreProcess.extractYear)
    dataDF = PreProcess.addScoreAndTotalRatings(dataDF)
    dataDF = PreProcess.addWeightedRating(dataDF)
-   
-   #Print the top 15 games
-   # print(dataDF[['name', 'total_ratings', 'score', 'weighted_score']].head(15))
-   
    dataDF = PreProcess.formatColumns(dataDF)
    dataDF = PreProcess.dropNoNameDevPub(dataDF)
    
+   #Export the processed data to a csv file
    dataDF.to_csv('Data\cleanedData.csv', index=False)
    
    # create an object for TfidfVectorizer
    tfidfVector = TfidfVectorizer(stop_words='english')
-   # apply the object to the genres column
+
    # convert the list of documents (rows of genre tags) into a matrix
    tfidfMatrix = tfidfVector.fit_transform(dataDF['merged'])
-   print(tfidfMatrix.shape)
    
    # create the cosine similarity matrix
    sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
-   print(sim_matrix.shape)
-   modSim_matrix = sim_matrix
-   modSim_matrix.tolist()
-
-
-   res=[]
-   for r in range(0,len(modSim_matrix)):
-      #print(r)
-      row = list(enumerate(sim_matrix[int(r)]))
-      row_sorted = list(filter(lambda x:x[0] != int(r), sorted(row,key=lambda x:x[1], reverse=True)))
-      idxList = list(zip(*row_sorted))[0]
-      res.append(idxList)
-      row = []
-      
-   with open("test.json", "w") as fp:
-       json.dump(res, fp)
-      
    
+   ## Call to update the recommendation database in Firebase
+   # updateRecommFirebase(dataDF, sim_matrix)
    
-      
-   #print(modSim_matrix)
-#  print(sim_matrix)
-#  print(sim_matrix.shape)
-   print(dataDF.shape)
+   #Get the recommendation with some filters
    result = recommend(dataDF, 10, "Counter-Strike", "Weighted Score", 2000, "windows", 0, sim_matrix)
-   #result.to_csv('Data\result.csv', index=False)
    print(result)
