@@ -70,14 +70,39 @@ def updateRecommFirebase(df, matrix):
       currAppID = get_appid_from_index(df, row[r][0])
       
       #Create Dictionary with the appid of the current game and the list of (100) similar games
-      topRecDict = {'appID': str(currAppID), 'topRecommend': {}}
+      topRecDict = {'appID': str(currAppID), 'topRecommend': []}
+      listTopRec = []
       for g in range(0,100):
          #Add the 100 most simalar games to the dictionary
-         topRecDict['topRecommend'].update({str(g+1): str(get_appid_from_index(df, idxList[g]))})
-      
+         listTopRec.append(str(get_appid_from_index(df, idxList[g])))
+      topRecDict['topRecommend'] = listTopRec
       #Add the dictionary to the firebase database
       doc_ref = db.collection(u'recommendation').document(u'' + str(currAppID))
       doc_ref.set(topRecDict, merge=True)
+      
+def updateDataFirebase(df):
+   # Firebase Credentials
+   cred = credentials.Certificate("wdips-functions\wdips-creds.json")
+   app = firebase_admin.initialize_app(cred)
+   db = firestore.client()
+   
+   # For loop to go through each game in the dataframe
+   for _, r in df.iterrows():
+      #Create Dictionary with the most relevant information of each game in the dataframe
+      currAppID = r['appid']
+      gameDict = {'appID': str(r['appid']), 
+                  'name': str(r['name']),
+                  'release_date': str(r['release_date']),
+                  'developer': str(r['developer']),
+                  'publisher': str(r['publisher']),
+                  'platforms': r['platforms'].split(';'),
+                  'genres': str(r['genres']),
+                  'price': str(r['price']),
+                  'weighted_score': str(r['weighted_score'])}
+      #Add the dictionary to the firebase database
+      doc_ref = db.collection(u'games').document(u'' + str(currAppID))
+      doc_ref.set(gameDict, merge=True)
+      break
    
     
 def recommend(df, how_many, dropdown_option, sort_option, min_year, platform, min_score, sm_matrix):
@@ -144,12 +169,14 @@ if __name__ == '__main__':
 
    # convert the list of documents (rows of genre tags) into a matrix
    tfidfMatrix = tfidfVector.fit_transform(dataDF['merged'])
-   
    # create the cosine similarity matrix
    sim_matrix = linear_kernel(tfidfMatrix,tfidfMatrix)
    
+   
    ## Call to update the recommendation database in Firebase
-   # updateRecommFirebase(dataDF, sim_matrix)
+   #updateRecommFirebase(dataDF, sim_matrix)
+   
+   #updateDataFirebase(dataDF)
    
    #Get the recommendation with some filters
    result = recommend(dataDF, 10, "Counter-Strike", "Weighted Score", 2000, "windows", 0, sim_matrix)
