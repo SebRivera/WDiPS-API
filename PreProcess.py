@@ -2,40 +2,20 @@ import pandas as pd
 import numpy as np
 import re
 
-## import matplotlib.pyplot as plt
+#Function to import the data from the csv file
 def importData(filename):
+    #fileName = "Data\steam.csv"
     df = pd.read_csv(filename, encoding = "utf-8")
-    ##fileName = "Data\steam.csv"
     return df
 
-
-def replace_foreign_characters(s):
-    return re.sub(r'[^\x00-\x7f]',r'', s)
-
-
-#These are just quick checks to make sure the dataset looks correct
-## print(df.shape)
-## df.head()
-
-#Which columns have null values?
-##print(df.columns[df.isna().any()].tolist())
-#How many null values per column? - Count the missing values in each column
-##df.isnull().sum()
-
-# Extracts the year from the release date
-def extractYear(date):
-    year = date[:4]
-    if year.isnumeric():
-        return int(year)
-    else:
-        return np.nan
-    
+#Function to drop rows with no playtime
 def dropNoPlayRimeRows(df):
     idxNoPTR = df[(df['average_playtime'] == 0)].index
     df.drop(idxNoPTR , inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
 
+#Function to drop rows with no name or no developer, and no publisher
 def dropNoNameDevPub(df):
     idxNoNDP = df[(df['name'] == '')].index
     df.drop(idxNoNDP , inplace=True)
@@ -44,26 +24,37 @@ def dropNoNameDevPub(df):
     df.drop(idxNoNDP , inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
-    
+
+# Extracts the year from the release date
+def extractYear(date):
+    year = date[:4]
+    if year.isnumeric():
+        return int(year)
+    else:
+        return np.nan
+
+#Function to get the total amount of ratings
 def totalRatings(row):
     posCount = row['positive_ratings']
     negCount = row['negative_ratings']
     totalCount = posCount + negCount
     return totalCount
+#Function to create the average Score of the ratings
 def createScore(row):
     posCount = row['positive_ratings']
     negCount = row['negative_ratings']
     totalCount = posCount + negCount
     average = posCount / totalCount
     return round(average, 2)
-
+#Function to add the score and total ratings to the dataframe
 def addScoreAndTotalRatings(df):
     df['score'] = df.apply(createScore, axis=1)
     df['total_ratings'] = df.apply(totalRatings, axis=1)
     return df
+    
+def replace_foreign_characters(s):
+    return re.sub(r'[^\x00-\x7f]',r'', s)
 
-
-# calculate the weighted rating for each qualified game
 # Function that computes the weighted rating of each game
 def weighted_rating(x, m, C):
     v = x['total_ratings']
@@ -80,13 +71,8 @@ def addWeightedRating(df):
     df['weighted_score'] = df.apply(weighted_rating, axis=1, args=(m, C))
     return df
 
-def combine(x, colA, colB, colC):
-    return x[colA] + ' ' + x[colB] + ' ' + x[colC]
-def combine2(x, *features):
+def combine(x, *features):
     result = ''
-    # turn features to string  
-    
-    
     for f in features:
         result += str(x[f]) + ' '
     return result
@@ -105,51 +91,34 @@ def updateAvgPlaytime(df):
     elif df['average_playtime'] >= 5000:
         return 'Extreme-PT'
 
+# Function which contains all processes of formating.
 def formatColumns(df):
-    #We're adding this is for tags with multiple words, we need to connect by '-' before we split them by ' '
+    #Clean up all foreign characters and non ASCII characters
     df.astype(str).apply(lambda x: x.str.encode('ascii', 'ignore').str.decode('ascii'))
     df['name'] = df['name'].apply(lambda x: replace_foreign_characters(x))
     df['developer'] = df['developer'].apply(lambda x: replace_foreign_characters(x))
     df['publisher'] = df['publisher'].apply(lambda x: replace_foreign_characters(x))
-    # df = df[df['name'].map(lambda x: x.isascii())]
-    # df = df[df['developer'].map(lambda x: x.isascii())]
-    # df = df[df['publisher'].map(lambda x: x.isascii())]
-    # df.reset_index(drop=True, inplace=True)
-    df['steamspy_tags'] = df['steamspy_tags'].str.replace(' ','-')
-    #TF-IDF Vectorizer further down will identify the words by the spaces between the words
-    df['genres'] = df['steamspy_tags'].str.replace(';',' ')
-    df['categories'] = df['categories'].str.replace(' ','-')
-    df['categories'] = df['categories'].str.replace(';',' ')
+    #We clean up some extra characters
     df['name'] = df['name'].str.replace('™','')
     df['name'] = df['name'].str.replace('®','')
     df['name'] = df['name'].str.replace('’','')
     df['developer'] = df['developer'].str.replace('™','')
     df['publisher'] = df['publisher'].str.replace('™','')
-    
+    #We clean up some extra spaces
     df['name'] = df['name'].str.strip()
     df['developer'] = df['developer'].str.strip()
     df['publisher'] = df['publisher'].str.strip()
+    #Since some tags have multiple words, we need to connect them with '-', before we split them with ' '
+    df['steamspy_tags'] = df['steamspy_tags'].str.replace(' ','-')
+    df['categories'] = df['categories'].str.replace(' ','-')
+    #TF-IDF Vectorizer further down will identify the words by the spaces between the words
+    df['genres'] = df['steamspy_tags'].str.replace(';',' ')
+    df['categories'] = df['categories'].str.replace(';',' ')
 
-    
+    #We replace average playtime with a categorical value
     df['average_playtime'] = df.apply(updateAvgPlaytime, axis=1)
-    features = ['steamspy_tags','categories', 'average_playtime', 'required_age'] #,'average_playtime'
-    df['merged'] = df.apply(combine2, axis=1, args = features)
-    print(df['merged'].head())
-    
-    # count the number of occurences for each genre in the data set
-    counts = dict()
-    for i in df.index:
-    #for each element in list (each row, split by ' ', in genres column)
-    #-- we're splitting by space so tfidf can interpret the rows
-        for g in df.loc[i,'genres'].split(' '):
-        #if element is not in counts(dictionary of genres)
-            if g not in counts:
-                #give genre dictonary entry the value of 1
-                counts[g] = 1
-            else:
-                #increase genre dictionary entry by 1
-                counts[g] = counts[g] + 1
-    #Test Genre Counts
-    counts.keys()
-    print(counts['Action'])
+    #List of features to combine
+    features = ['steamspy_tags','categories', 'average_playtime', 'required_age']
+    #Compine the features into one column
+    df['merged'] = df.apply(combine, axis=1, args = features)
     return df
